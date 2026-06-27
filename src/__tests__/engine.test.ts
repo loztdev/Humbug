@@ -4,7 +4,7 @@ import {
   targetLengthFraction,
   gainsAssessment,
   RETENTION,
-} from '@/compaction/compactor';
+} from '@/compaction/retention';
 
 describe('similarity', () => {
   it('returns 1 for identical vectors', () => {

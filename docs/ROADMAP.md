@@ -11,28 +11,31 @@ Built incrementally across turns. Checked = landed.
 - [x] Secure API-key storage (OS keystore)
 - [x] Unit tests for pure engine logic
 
-## Phase 2 — Persistence + UI
-- [ ] SQLite schema + repositories (chats, messages, memories, prompts)
-- [ ] Zustand stores wiring engine ↔ UI
-- [ ] Chat list + chat screen with streaming render
-- [ ] Settings: providers/keys, model picker, embeddings-provider picker
-- [ ] System-prompt library (create / name / save / apply)
+## Phase 2 — Persistence + UI (done)
+- [x] SQLite schema + repositories (chats, messages, memories, prompts, settings)
+- [x] Zustand stores wiring engine ↔ UI (settings, prompts, chats)
+- [x] Chat list + chat screen with token-by-token streaming render
+- [x] Settings: provider/model pickers, embeddings-provider picker, key manager
+- [x] System-prompt library (create / name / save / edit / apply)
+- [x] Auto-memory: each turn is distilled into long-term memory and recalled
 
 ## Phase 3 — Files, export, compaction UX
+- [x] Export all / individual chats (Markdown + JSON) via `expo-sharing`
+- [x] Compaction UI (stepped retention picker with live gains explainer)
+- [ ] Continuous slider for retention (currently stepped 50/60/70/80/90/97)
 - [ ] File uploads (`expo-document-picker`) + text extraction for context
-- [ ] Export all / individual chats (JSON + Markdown) via `expo-sharing`
-- [ ] Compaction slider UI with the live gains explainer
-- [ ] Auto-memory: distill chat turns into memories in the background
+- [ ] Memory browser/editor (view, pin, delete memories)
 
 ## Phase 4 — Polish
-- [ ] Per-chat memory toggle + memory browser/editor
-- [ ] Token/usage accounting per chat
+- [ ] Markdown rendering in assistant bubbles (code blocks, lists)
+- [ ] Token/cost accounting per chat with a pricing table
+- [ ] Dynamic model lists from `listModels()` in the pickers
 - [ ] Theming, accessibility pass
 - [ ] iOS support
 
 ## Ideas worth considering
-- Prompt cost preview before sending (per-provider pricing table)
+- Prompt cost preview before sending (per-provider pricing)
 - "Pin to memory" on any message
-- Cross-chat memory scoping (global vs per-chat)
-- Local-only embeddings option (on-device model) to avoid an embeddings key
+- Cross-chat vs per-chat memory scoping
+- Local-only embeddings (on-device) to avoid an embeddings key
 - Conversation branching / forking
