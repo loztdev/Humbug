@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { Chat, Message, ProviderId } from '@/types';
+import type { Attachment, Chat, Message, ProviderId } from '@/types';
 import { newId, now } from '@/utils/id';
-import { getProvider, type ProviderChatMessage } from '@/providers';
+import { getProvider } from '@/providers';
+import { toProviderMessage } from '@/files/attachments';
 import { getApiKey } from '@/storage/secureKeys';
 import {
   createChat as dbCreateChat,
@@ -57,7 +58,7 @@ interface ChatsState {
   setChatModel: (id: string, providerId: ProviderId, model: string) => Promise<void>;
   setSystemPrompt: (id: string, promptId: string | null) => Promise<void>;
   toggleMemory: (id: string, enabled: boolean) => Promise<void>;
-  send: (text: string) => Promise<void>;
+  send: (text: string, attachments?: Attachment[]) => Promise<void>;
   stop: () => void;
   compactCurrent: (retention: number) => Promise<void>;
   clearError: () => void;
@@ -135,7 +136,7 @@ export const useChats = create<ChatsState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  send: async (text) => {
+  send: async (text, attachments) => {
     const chatId = get().currentChatId;
     if (!chatId || get().streaming) return;
     const chat = await getChat(chatId);
@@ -155,13 +156,15 @@ export const useChats = create<ChatsState>((set, get) => ({
       chatId,
       role: 'user',
       content: text.trim(),
+      attachments: attachments && attachments.length ? attachments : undefined,
       createdAt: now(),
     };
     await insertMessage(userMsg);
 
     // Auto-title from the first user message.
     if (chat.title === 'New chat') {
-      const title = text.trim().slice(0, 48) || 'New chat';
+      const title =
+        text.trim().slice(0, 48) || attachments?.[0]?.name || 'New chat';
       await updateChat(chatId, { title });
       set((s) => ({ chats: s.chats.map((c) => (c.id === chatId ? { ...c, title } : c)) }));
     }
@@ -199,10 +202,15 @@ export const useChats = create<ChatsState>((set, get) => ({
     }
     set({ lastMemoryHits: memoryHits });
 
-    // 4. Stream the reply.
-    const history: ProviderChatMessage[] = [...get().messages]
-      .filter((m) => m.id !== assistantMsg.id && m.content)
-      .map((m) => ({ role: m.role, content: m.content }));
+    // 4. Stream the reply. Build provider messages (folding in attachments:
+    // text-file contents inline, images as base64 for vision models).
+    const history = await Promise.all(
+      get()
+        .messages.filter(
+          (m) => m.id !== assistantMsg.id && (m.content || m.attachments?.length),
+        )
+        .map(toProviderMessage),
+    );
 
     abortController = new AbortController();
     let acc = '';

@@ -6,9 +6,18 @@ import type { ProviderId, Role, TokenUsage } from '@/types';
  * Adding a new provider = one file + one registry entry.
  */
 
+/** An image carried alongside a message, for vision-capable models. */
+export interface ImagePart {
+  mimeType: string;
+  /** Base64-encoded image data (no data: prefix). */
+  dataBase64: string;
+}
+
 export interface ProviderChatMessage {
   role: Role;
   content: string;
+  /** Optional images; providers that support vision render these inline. */
+  images?: ImagePart[];
 }
 
 export interface ChatRequest {

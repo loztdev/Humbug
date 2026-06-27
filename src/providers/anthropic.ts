@@ -42,7 +42,7 @@ export const anthropicProvider: Provider = {
       ...(req.temperature != null ? { temperature: req.temperature } : {}),
       messages: req.messages
         .filter((m) => m.role !== 'system')
-        .map((m) => ({ role: m.role, content: m.content })),
+        .map((m) => ({ role: m.role, content: anthropicContent(m) })),
       stream: true,
     };
 
@@ -102,6 +102,20 @@ export const anthropicProvider: Provider = {
     }
   },
 };
+
+/** Anthropic content: a string, or an array of blocks when images are present. */
+function anthropicContent(m: { content: string; images?: { mimeType: string; dataBase64: string }[] }) {
+  if (!m.images || m.images.length === 0) return m.content;
+  const blocks: any[] = [];
+  for (const img of m.images) {
+    blocks.push({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mimeType, data: img.dataBase64 },
+    });
+  }
+  if (m.content) blocks.push({ type: 'text', text: m.content });
+  return blocks;
+}
 
 function safeJSON(s: string): any | null {
   try {

@@ -3,18 +3,18 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useSettings } from '@/state/settings';
 import { allProviders, embeddingProviders, getProvider } from '@/providers';
-import { PickerModal, type PickerOption } from '@/components/PickerModal';
-import { gainsAssessment, RETENTION } from '@/compaction/compactor';
+import { PickerModal } from '@/components/PickerModal';
+import { CompactionSheet } from '@/components/CompactionSheet';
 import type { ProviderId } from '@/types';
 import { theme } from '@/theme';
 
-type Open = 'chatProvider' | 'chatModel' | 'embProvider' | 'retention' | null;
-const RETENTION_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, RETENTION.max];
+type Open = 'chatProvider' | 'chatModel' | 'embProvider' | null;
 
 export default function SettingsScreen() {
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
   const [open, setOpen] = useState<Open>(null);
+  const [retentionSheet, setRetentionSheet] = useState(false);
 
   const chatProvider = getProvider(settings.chatProviderId);
 
@@ -40,7 +40,7 @@ export default function SettingsScreen() {
         <Row
           label="Default meaning kept"
           value={`${Math.round(settings.compactionRetention * 100)}%`}
-          onPress={() => setOpen('retention')}
+          onPress={() => setRetentionSheet(true)}
         />
       </Section>
 
@@ -84,17 +84,13 @@ export default function SettingsScreen() {
           })
         }
       />
-      <PickerModal
-        visible={open === 'retention'}
-        title="Default compaction — keep how much meaning?"
-        selected={String(settings.compactionRetention)}
-        options={RETENTION_STEPS.map((r): PickerOption => ({
-          label: `${Math.round(r * 100)}%`,
-          value: String(r),
-          sublabel: gainsAssessment(r).message,
-        }))}
-        onClose={() => setOpen(null)}
-        onSelect={(v) => update({ compactionRetention: Number(v) })}
+      <CompactionSheet
+        visible={retentionSheet}
+        initial={settings.compactionRetention}
+        title="Default compaction level"
+        confirmLabel="Save default"
+        onConfirm={(r) => update({ compactionRetention: r })}
+        onClose={() => setRetentionSheet(false)}
       />
     </ScrollView>
   );

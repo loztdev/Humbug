@@ -19,11 +19,10 @@ Built incrementally across turns. Checked = landed.
 - [x] System-prompt library (create / name / save / edit / apply)
 - [x] Auto-memory: each turn is distilled into long-term memory and recalled
 
-## Phase 3 — Files, export, compaction UX
+## Phase 3 — Files, export, compaction UX (done)
 - [x] Export all / individual chats (Markdown + JSON) via `expo-sharing`
-- [x] Compaction UI (stepped retention picker with live gains explainer)
-- [ ] Continuous slider for retention (currently stepped 50/60/70/80/90/97)
-- [ ] File uploads (`expo-document-picker`) + text extraction for context
+- [x] Continuous compaction slider (50–97%) with live gains explainer
+- [x] File uploads: text extraction for documents + images sent to vision models
 - [ ] Memory browser/editor (view, pin, delete memories)
 
 ## Phase 4 — Polish

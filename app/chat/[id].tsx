@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,17 +14,16 @@ import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChats } from '@/state/chats';
 import { usePrompts } from '@/state/prompts';
-import { allProviders, getProvider } from '@/providers';
-import type { Message, ProviderId } from '@/types';
+import { allProviders } from '@/providers';
+import type { Attachment, Message, ProviderId } from '@/types';
 import { PickerModal, type PickerOption } from '@/components/PickerModal';
+import { CompactionSheet } from '@/components/CompactionSheet';
+import { pickAttachments, isImage } from '@/files/attachments';
 import { exportChat } from '@/export/exporter';
-import { gainsAssessment, RETENTION } from '@/compaction/compactor';
 import { useSettings } from '@/state/settings';
 import { theme } from '@/theme';
 
-type OpenModal = 'model' | 'prompt' | 'compact' | null;
-
-const RETENTION_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, RETENTION.max];
+type OpenModal = 'model' | 'prompt' | null;
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,6 +46,8 @@ export default function ChatScreen() {
 
   const [draft, setDraft] = useState('');
   const [modal, setModal] = useState<OpenModal>(null);
+  const [compactOpen, setCompactOpen] = useState(false);
+  const [pending, setPending] = useState<Attachment[]>([]);
   const listRef = useRef<FlatList<Message>>(null);
 
   const chat = useMemo(() => chats.find((c) => c.id === id), [chats, id]);
@@ -58,9 +60,16 @@ export default function ChatScreen() {
 
   const onSend = () => {
     const text = draft.trim();
-    if (!text || streaming) return;
+    if ((!text && pending.length === 0) || streaming) return;
     setDraft('');
-    send(text);
+    const atts = pending;
+    setPending([]);
+    send(text, atts);
+  };
+
+  const onAttach = async () => {
+    const picked = await pickAttachments();
+    if (picked.length) setPending((p) => [...p, ...picked]);
   };
 
   const modelOptions: PickerOption[] = useMemo(
@@ -81,19 +90,6 @@ export default function ChatScreen() {
       ...prompts.map((p) => ({ label: p.name, value: p.id, sublabel: p.body.slice(0, 50) })),
     ],
     [prompts],
-  );
-
-  const compactOptions: PickerOption[] = useMemo(
-    () =>
-      RETENTION_STEPS.map((r) => {
-        const g = gainsAssessment(r);
-        return {
-          label: `${Math.round(r * 100)}% meaning kept`,
-          value: String(r),
-          sublabel: g.message,
-        };
-      }),
-    [],
   );
 
   if (!chat) {
@@ -129,7 +125,7 @@ export default function ChatScreen() {
           active={chat.memoryEnabled}
           onPress={() => toggleMemory(chat.id, !chat.memoryEnabled)}
         />
-        <Chip label="🗜 Compact" onPress={() => setModal('compact')} />
+        <Chip label="🗜 Compact" onPress={() => setCompactOpen(true)} />
       </View>
 
       {error ? (
@@ -159,6 +155,23 @@ export default function ChatScreen() {
           renderItem={({ item }) => <Bubble message={item} streaming={streaming} />}
         />
 
+        {/* Pending attachments */}
+        {pending.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space(2), paddingHorizontal: theme.space(3), paddingBottom: theme.space(2) }}>
+            {pending.map((a) => (
+              <Pressable
+                key={a.id}
+                onPress={() => setPending((p) => p.filter((x) => x.id !== a.id))}
+                style={{ backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.sm, paddingHorizontal: theme.space(3), paddingVertical: theme.space(1.5) }}
+              >
+                <Text style={{ color: theme.colors.text, fontSize: 12 }}>
+                  {isImage(a.mimeType) ? '🖼' : '📄'} {a.name}  ✕
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <View
           style={{
             flexDirection: 'row',
@@ -169,6 +182,9 @@ export default function ChatScreen() {
             borderTopColor: theme.colors.border,
           }}
         >
+          <Pressable onPress={onAttach} style={sendBtn(theme.colors.surfaceAlt)}>
+            <Text style={{ color: theme.colors.text, fontSize: 20 }}>＋</Text>
+          </Pressable>
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -191,7 +207,11 @@ export default function ChatScreen() {
               <Text style={{ color: theme.colors.danger, fontWeight: '700' }}>■</Text>
             </Pressable>
           ) : (
-            <Pressable onPress={onSend} style={sendBtn(theme.colors.accent)} disabled={!draft.trim()}>
+            <Pressable
+              onPress={onSend}
+              style={sendBtn(theme.colors.accent)}
+              disabled={!draft.trim() && pending.length === 0}
+            >
               <Text style={{ color: '#fff', fontWeight: '700' }}>↑</Text>
             </Pressable>
           )}
@@ -217,13 +237,11 @@ export default function ChatScreen() {
         onClose={() => setModal(null)}
         onSelect={(v) => setSystemPrompt(chat.id, v || null)}
       />
-      <PickerModal
-        visible={modal === 'compact'}
-        title="Compact conversation — keep how much meaning?"
-        options={compactOptions}
-        selected={String(retentionDefault)}
-        onClose={() => setModal(null)}
-        onSelect={(v) => compactCurrent(Number(v))}
+      <CompactionSheet
+        visible={compactOpen}
+        initial={retentionDefault}
+        onClose={() => setCompactOpen(false)}
+        onConfirm={(r) => compactCurrent(r)}
       />
     </SafeAreaView>
   );
@@ -232,6 +250,7 @@ export default function ChatScreen() {
 function Bubble({ message, streaming }: { message: Message; streaming: boolean }) {
   const isUser = message.role === 'user';
   const empty = !message.content && streaming && message.role === 'assistant';
+  const atts = message.attachments ?? [];
   return (
     <View
       style={{
@@ -243,17 +262,36 @@ function Bubble({ message, streaming }: { message: Message; streaming: boolean }
         borderColor: theme.colors.border,
         paddingHorizontal: theme.space(3.5),
         paddingVertical: theme.space(2.5),
+        gap: theme.space(2),
       }}
     >
+      {atts.length > 0 ? (
+        <View style={{ gap: theme.space(1.5) }}>
+          {atts.map((a) =>
+            isImage(a.mimeType) ? (
+              <Image
+                key={a.id}
+                source={{ uri: a.uri }}
+                style={{ width: 180, height: 180, borderRadius: theme.radius.sm }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text key={a.id} style={{ color: theme.colors.textDim, fontSize: 12 }}>
+                📄 {a.name}
+              </Text>
+            ),
+          )}
+        </View>
+      ) : null}
+
       {empty ? (
         <ActivityIndicator color={theme.colors.textDim} />
-      ) : (
+      ) : message.content ? (
         <Text style={{ color: theme.colors.text, fontSize: 15, lineHeight: 21 }}>{message.content}</Text>
-      )}
+      ) : null}
+
       {message.usage?.totalTokens ? (
-        <Text style={{ color: theme.colors.textDim, fontSize: 10, marginTop: 4 }}>
-          {message.usage.totalTokens} tokens
-        </Text>
+        <Text style={{ color: theme.colors.textDim, fontSize: 10 }}>{message.usage.totalTokens} tokens</Text>
       ) : null}
     </View>
   );

@@ -53,7 +53,7 @@ export const geminiProvider: Provider = {
       .filter((m) => m.role !== 'system')
       .map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
+        parts: geminiParts(m),
       }));
     const body = {
       contents,
@@ -119,6 +119,16 @@ export const geminiProvider: Provider = {
     }
   },
 };
+
+/** Gemini parts: text plus any inline image data. */
+function geminiParts(m: { content: string; images?: { mimeType: string; dataBase64: string }[] }) {
+  const parts: any[] = [];
+  if (m.content) parts.push({ text: m.content });
+  for (const img of m.images ?? []) {
+    parts.push({ inlineData: { mimeType: img.mimeType, data: img.dataBase64 } });
+  }
+  return parts.length ? parts : [{ text: '' }];
+}
 
 function safeJSON(s: string): any | null {
   try {

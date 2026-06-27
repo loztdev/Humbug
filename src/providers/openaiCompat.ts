@@ -66,7 +66,7 @@ export function createOpenAICompatProvider(cfg: OpenAICompatConfig): Provider {
     ): AsyncGenerator<ChatChunk> {
       const messages = [
         ...(req.system ? [{ role: 'system', content: req.system }] : []),
-        ...req.messages.map((m) => ({ role: m.role, content: m.content })),
+        ...req.messages.map((m) => ({ role: m.role, content: openAIContent(m) })),
       ];
       const body = {
         model: req.model,
@@ -134,6 +134,20 @@ export function createOpenAICompatProvider(cfg: OpenAICompatConfig): Provider {
   }
 
   return provider;
+}
+
+/** OpenAI content: a plain string, or a parts array when images are present. */
+function openAIContent(m: { content: string; images?: { mimeType: string; dataBase64: string }[] }) {
+  if (!m.images || m.images.length === 0) return m.content;
+  const parts: any[] = [];
+  if (m.content) parts.push({ type: 'text', text: m.content });
+  for (const img of m.images) {
+    parts.push({
+      type: 'image_url',
+      image_url: { url: `data:${img.mimeType};base64,${img.dataBase64}` },
+    });
+  }
+  return parts;
 }
 
 function safeJSON(s: string): any | null {
