@@ -7,34 +7,38 @@ Built incrementally across turns. Checked = landed.
 - [x] Provider abstraction + Anthropic, OpenAI, OpenRouter, Gemini, z.ai
 - [x] Streaming via `expo/fetch` with unified SSE + error handling
 - [x] Semantic memory: embeddings, cosine retrieval, recency boost
-- [x] Meaning-preserving compaction with 50–97% retention slider logic
+- [x] Meaning-preserving compaction (50–97% retention)
 - [x] Secure API-key storage (OS keystore)
-- [x] Unit tests for pure engine logic
 
 ## Phase 2 — Persistence + UI (done)
-- [x] SQLite schema + repositories (chats, messages, memories, prompts, settings)
-- [x] Zustand stores wiring engine ↔ UI (settings, prompts, chats)
-- [x] Chat list + chat screen with token-by-token streaming render
-- [x] Settings: provider/model pickers, embeddings-provider picker, key manager
-- [x] System-prompt library (create / name / save / edit / apply)
-- [x] Auto-memory: each turn is distilled into long-term memory and recalled
+- [x] SQLite schema + repositories; Zustand stores wiring engine ↔ UI
+- [x] Chat list + streaming chat view; settings & provider/key manager
+- [x] System-prompt library; auto-memory distilled from each turn
 
 ## Phase 3 — Files, export, compaction UX (done)
-- [x] Export all / individual chats (Markdown + JSON) via `expo-sharing`
-- [x] Continuous compaction slider (50–97%) with live gains explainer
-- [x] File uploads: text extraction for documents + images sent to vision models
-- [ ] Memory browser/editor (view, pin, delete memories)
+- [x] Export all / individual chats (Markdown + JSON)
+- [x] Continuous compaction slider with live gains explainer
+- [x] File uploads: document text extraction + images to vision models
+- [x] Memory browser/editor (search, pin, edit, delete)
 
-## Phase 4 — Polish
-- [ ] Markdown rendering in assistant bubbles (code blocks, lists)
-- [ ] Token/cost accounting per chat with a pricing table
-- [ ] Dynamic model lists from `listModels()` in the pickers
-- [ ] Theming, accessibility pass
-- [ ] iOS support
+## Phase 4 — Power features (done)
+- [x] Markdown rendering in replies (code blocks + copy, lists, links)
+- [x] Per-message cost + per-chat token/cost meter (approx pricing table)
+- [x] Per-message actions (copy, pin to memory, regenerate, delete)
+- [x] Global search across chats, messages, and memories
+- [x] App lock (biometric / device PIN)
+- [x] Auto-compact suggestion when nearing the context window
 
-## Ideas worth considering
-- Prompt cost preview before sending (per-provider pricing)
-- "Pin to memory" on any message
-- Cross-chat vs per-chat memory scoping
-- Local-only embeddings (on-device) to avoid an embeddings key
-- Conversation branching / forking
+## Phase 5 — Next up
+- [ ] Local on-device embeddings, selectable vs. API embeddings (#5)
+- [ ] Encrypted backup & restore of the whole library (#12)
+- [ ] Edit-and-resend a message; conversation branching/forking (#4, #9)
+- [ ] "Estimated cost before sending" preview
+
+## Later (kept in mind)
+- [ ] Voice input/output (#6)
+- [ ] Prompt template starter pack (#7)
+- [ ] Multi-model "council" compare (#8)
+- [ ] Custom / self-hosted OpenAI-compatible endpoints, incl. Ollama (#14)
+- [ ] Themes, light mode, chat density (#15)
+- [ ] Dynamic model lists from `listModels()`; iOS pass; accessibility

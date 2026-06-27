@@ -38,6 +38,16 @@ export async function listChats(includeArchived = false): Promise<Chat[]> {
   return rows.map(fromRow);
 }
 
+export async function searchChats(q: string, limit = 50): Promise<Chat[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<ChatRow>(
+    `SELECT * FROM chats WHERE title LIKE ? ORDER BY updatedAt DESC LIMIT ?`,
+    `%${q}%`,
+    limit,
+  );
+  return rows.map(fromRow);
+}
+
 export async function getChat(id: string): Promise<Chat | null> {
   const db = await getDb();
   const row = await db.getFirstAsync<ChatRow>(`SELECT * FROM chats WHERE id = ?`, id);

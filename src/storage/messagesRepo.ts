@@ -36,6 +36,16 @@ export async function listMessages(chatId: string): Promise<Message[]> {
   return rows.map(fromRow);
 }
 
+export async function searchMessages(q: string, limit = 80): Promise<Message[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<MessageRow>(
+    `SELECT * FROM messages WHERE content LIKE ? ORDER BY createdAt DESC LIMIT ?`,
+    `%${q}%`,
+    limit,
+  );
+  return rows.map(fromRow);
+}
+
 export async function insertMessage(m: Message): Promise<void> {
   const db = await getDb();
   await db.runAsync(

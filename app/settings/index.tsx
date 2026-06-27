@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useSettings } from '@/state/settings';
 import { allProviders, embeddingProviders, getProvider } from '@/providers';
@@ -44,9 +44,27 @@ export default function SettingsScreen() {
         />
       </Section>
 
+      <Section title="Security">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: theme.space(3.5) }}>
+          <View style={{ flex: 1, paddingRight: theme.space(3) }}>
+            <Text style={{ color: theme.colors.text, fontSize: 15 }}>App lock</Text>
+            <Text style={{ color: theme.colors.textDim, fontSize: 12, marginTop: 2 }}>
+              Require biometrics / device PIN to open Humbug.
+            </Text>
+          </View>
+          <Switch
+            value={settings.appLock}
+            onValueChange={(v) => update({ appLock: v })}
+            trackColor={{ true: theme.colors.accentDim, false: theme.colors.border }}
+            thumbColor={settings.appLock ? theme.colors.accent : '#888'}
+          />
+        </View>
+      </Section>
+
       <Section title="Manage">
         <LinkRow href="/settings/providers" label="Providers & API keys" />
         <LinkRow href="/settings/prompts" label="System prompt library" />
+        <LinkRow href="/settings/memory" label="Memory browser" />
       </Section>
 
       <PickerModal

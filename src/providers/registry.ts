@@ -81,3 +81,9 @@ export function embeddingProviders(): Provider[] {
 }
 
 export const PROVIDER_IDS = Object.keys(PROVIDERS) as ProviderId[];
+
+/** Best-known context window (tokens) for a provider+model, with a safe default. */
+export function contextWindowFor(providerId: ProviderId, model: string): number {
+  const m = PROVIDERS[providerId]?.staticModels.find((x) => x.id === model);
+  return m?.contextWindow ?? 128_000;
+}

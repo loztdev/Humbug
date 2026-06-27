@@ -5,6 +5,7 @@ import {
   gainsAssessment,
   RETENTION,
 } from '@/compaction/retention';
+import { costOf, formatCost } from '@/providers/pricing';
 
 describe('similarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -46,5 +47,23 @@ describe('compaction retention', () => {
     // Mid settings should always be worthwhile.
     expect(gainsAssessment(0.7).worthwhile).toBe(true);
     expect(gainsAssessment(0.7).estimatedReduction).toBeGreaterThan(0.12);
+  });
+});
+
+describe('pricing', () => {
+  it('computes cost from token usage for a known model', () => {
+    // Sonnet 4.6: $3/1M in, $15/1M out → 1000 in + 1000 out = 0.003 + 0.015.
+    const c = costOf('anthropic', 'claude-sonnet-4-6', {
+      promptTokens: 1000,
+      completionTokens: 1000,
+    });
+    expect(c).toBeCloseTo(0.018, 6);
+  });
+  it('returns null for unknown pricing (e.g. OpenRouter)', () => {
+    expect(costOf('openrouter', 'anything', { totalTokens: 100 })).toBeNull();
+  });
+  it('formats small costs with more precision', () => {
+    expect(formatCost(0.0004)).toBe('$0.0004');
+    expect(formatCost(2.5)).toBe('$2.50');
   });
 });

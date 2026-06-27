@@ -26,9 +26,14 @@ export default function ChatListScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Link href="/settings" style={{ color: theme.colors.accent, fontSize: 22, paddingHorizontal: 8 }}>
-              ⚙︎
-            </Link>
+            <View style={{ flexDirection: 'row', gap: theme.space(2) }}>
+              <Link href="/search" style={{ color: theme.colors.accent, fontSize: 20, paddingHorizontal: 6 }}>
+                ⌕
+              </Link>
+              <Link href="/settings" style={{ color: theme.colors.accent, fontSize: 20, paddingHorizontal: 6 }}>
+                ⚙︎
+              </Link>
+            </View>
           ),
         }}
       />

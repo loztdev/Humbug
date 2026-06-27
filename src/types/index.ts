@@ -86,4 +86,6 @@ export interface MemoryItem {
   /** Lightweight scoring inputs for ranking beyond pure similarity. */
   lastAccessedAt?: number;
   accessCount?: number;
+  /** Pinned memories are always eligible for retrieval and ranked first. */
+  pinned?: boolean;
 }

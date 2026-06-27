@@ -75,10 +75,15 @@ export async function retrieveRelevant(
 
   const now = Date.now();
   const boosted = ranked
-    .filter((r) => r.score >= o.minScore)
+    // Pinned memories bypass the relevance threshold — the user marked them
+    // important, so they're always eligible.
+    .filter((r) => r.item.pinned || r.score >= o.minScore)
     .map((r) => ({
       item: r.item,
-      score: r.score * (1 - o.recencyWeight) + recencyBoost(r.item, now) * o.recencyWeight,
+      score:
+        r.score * (1 - o.recencyWeight) +
+        recencyBoost(r.item, now) * o.recencyWeight +
+        (r.item.pinned ? 0.5 : 0),
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, o.k);

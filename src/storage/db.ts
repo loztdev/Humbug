@@ -19,11 +19,26 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
-async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
+const SCHEMA_VERSION = 2;
 
+async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+  await createBaseTables(db);
+
+  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const version = row?.user_version ?? 0;
+
+  // v2: add the `pinned` flag to memories (idempotent for fresh installs, which
+  // already get the column from createBaseTables).
+  if (version < 2) {
+    await addColumnIfMissing(db, 'memories', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
+  }
+
+  await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+}
+
+async function createBaseTables(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
     CREATE TABLE IF NOT EXISTS chats (
       id TEXT PRIMARY KEY NOT NULL,
       title TEXT NOT NULL,
@@ -56,6 +71,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       content TEXT NOT NULL,
       embedding TEXT,
       embeddingModel TEXT,
+      pinned INTEGER NOT NULL DEFAULT 0,
       createdAt INTEGER NOT NULL,
       lastAccessedAt INTEGER,
       accessCount INTEGER NOT NULL DEFAULT 0
@@ -75,4 +91,17 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       value TEXT NOT NULL
     );
   `);
+}
+
+/** Add a column only if it isn't already present (safe to re-run). */
+async function addColumnIfMissing(
+  db: SQLite.SQLiteDatabase,
+  table: string,
+  column: string,
+  decl: string,
+): Promise<void> {
+  const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+  if (!cols.some((c) => c.name === column)) {
+    await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+  }
 }

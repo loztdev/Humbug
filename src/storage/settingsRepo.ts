@@ -19,6 +19,8 @@ export interface AppSettings {
   defaultSystemPromptId: string | null;
   /** Default meaning-retention for compaction (0.5–0.97). */
   compactionRetention: number;
+  /** Require device authentication (biometric/PIN) to open the app. */
+  appLock: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   embeddingModel: 'text-embedding-3-small',
   defaultSystemPromptId: null,
   compactionRetention: RETENTION.default,
+  appLock: false,
 };
 
 const KEY = 'app';

@@ -13,10 +13,10 @@ import {
   updateChat,
 } from '@/storage/chatsRepo';
 import {
+  deleteMessage as dbDeleteMessage,
   insertMessage,
   listMessages,
   replaceWithSummary,
-  updateMessage,
 } from '@/storage/messagesRepo';
 import {
   addMemory,
@@ -47,7 +47,6 @@ interface ChatsState {
   streaming: boolean;
   streamingId: string | null;
   error: string | null;
-  /** Last retrieval count, for a small UI hint ("loaded N memories"). */
   lastMemoryHits: number;
 
   loadChats: () => Promise<void>;
@@ -59,6 +58,9 @@ interface ChatsState {
   setSystemPrompt: (id: string, promptId: string | null) => Promise<void>;
   toggleMemory: (id: string, enabled: boolean) => Promise<void>;
   send: (text: string, attachments?: Attachment[]) => Promise<void>;
+  regenerateLast: () => Promise<void>;
+  deleteMessage: (id: string) => Promise<void>;
+  pinMessageToMemory: (message: Message) => Promise<void>;
   stop: () => void;
   compactCurrent: (retention: number) => Promise<void>;
   clearError: () => void;
@@ -107,25 +109,19 @@ export const useChats = create<ChatsState>((set, get) => ({
 
   setChatModel: async (id, providerId, model) => {
     await updateChat(id, { providerId, model });
-    set((s) => ({
-      chats: s.chats.map((c) => (c.id === id ? { ...c, providerId, model } : c)),
-    }));
+    set((s) => ({ chats: s.chats.map((c) => (c.id === id ? { ...c, providerId, model } : c)) }));
   },
 
   setSystemPrompt: async (id, promptId) => {
     await updateChat(id, { systemPromptId: promptId ?? undefined });
     set((s) => ({
-      chats: s.chats.map((c) =>
-        c.id === id ? { ...c, systemPromptId: promptId ?? undefined } : c,
-      ),
+      chats: s.chats.map((c) => (c.id === id ? { ...c, systemPromptId: promptId ?? undefined } : c)),
     }));
   },
 
   toggleMemory: async (id, enabled) => {
     await updateChat(id, { memoryEnabled: enabled });
-    set((s) => ({
-      chats: s.chats.map((c) => (c.id === id ? { ...c, memoryEnabled: enabled } : c)),
-    }));
+    set((s) => ({ chats: s.chats.map((c) => (c.id === id ? { ...c, memoryEnabled: enabled } : c)) }));
   },
 
   stop: () => {
@@ -150,7 +146,6 @@ export const useChats = create<ChatsState>((set, get) => ({
       return;
     }
 
-    // 1. Persist the user message.
     const userMsg: Message = {
       id: newId('msg_'),
       chatId,
@@ -161,101 +156,49 @@ export const useChats = create<ChatsState>((set, get) => ({
     };
     await insertMessage(userMsg);
 
-    // Auto-title from the first user message.
     if (chat.title === 'New chat') {
-      const title =
-        text.trim().slice(0, 48) || attachments?.[0]?.name || 'New chat';
+      const title = text.trim().slice(0, 48) || attachments?.[0]?.name || 'New chat';
       await updateChat(chatId, { title });
       set((s) => ({ chats: s.chats.map((c) => (c.id === chatId ? { ...c, title } : c)) }));
     }
 
-    // 2. Create the streaming assistant placeholder.
-    const assistantMsg: Message = {
-      id: newId('msg_'),
-      chatId,
-      role: 'assistant',
-      content: '',
-      createdAt: now() + 1,
-    };
-    set((s) => ({
-      messages: [...s.messages, userMsg, assistantMsg],
-      streaming: true,
-      streamingId: assistantMsg.id,
-      error: null,
-    }));
-
-    // 3. Build the system prompt, optionally augmented with retrieved memory.
-    let system = chat.systemPromptId
-      ? (await getPrompt(chat.systemPromptId))?.body ?? ''
-      : '';
-    let memoryHits = 0;
-    if (chat.memoryEnabled) {
-      try {
-        const block = await buildMemoryBlock(chatId, text);
-        if (block) {
-          system = system ? `${system}\n\n${block.text}` : block.text;
-          memoryHits = block.count;
-        }
-      } catch {
-        // Memory is best-effort; a missing embeddings key shouldn't block chat.
-      }
-    }
-    set({ lastMemoryHits: memoryHits });
-
-    // 4. Stream the reply. Build provider messages (folding in attachments:
-    // text-file contents inline, images as base64 for vision models).
-    const history = await Promise.all(
-      get()
-        .messages.filter(
-          (m) => m.id !== assistantMsg.id && (m.content || m.attachments?.length),
-        )
-        .map(toProviderMessage),
-    );
-
-    abortController = new AbortController();
-    let acc = '';
-    let usage: Message['usage'];
-    try {
-      for await (const chunk of getProvider(chat.providerId).streamChat(
-        { model: chat.model, system: system || undefined, messages: history },
-        apiKey,
-        abortController.signal,
-      )) {
-        if (chunk.delta) {
-          acc += chunk.delta;
-          set((s) => ({
-            messages: s.messages.map((m) =>
-              m.id === assistantMsg.id ? { ...m, content: acc } : m,
-            ),
-          }));
-        }
-        if (chunk.usage) usage = chunk.usage;
-        if (chunk.done) break;
-      }
-    } catch (e) {
-      const msg = (e as Error)?.message ?? 'Request failed';
-      set((s) => ({
-        error: msg,
-        messages: s.messages.map((m) =>
-          m.id === assistantMsg.id
-            ? { ...m, content: acc || `⚠️ ${msg}` }
-            : m,
-        ),
-      }));
-    } finally {
-      abortController = null;
-      set({ streaming: false, streamingId: null });
-    }
-
-    // 5. Persist the final assistant message + distill memory.
-    const finalAssistant: Message = { ...assistantMsg, content: acc, usage };
-    await insertMessage(finalAssistant);
-    await touchChat(chatId);
-    if (acc && chat.memoryEnabled) {
-      await addMemory({ content: userMsg.content, sourceChatId: chatId, sourceMessageId: userMsg.id });
-      await addMemory({ content: acc, sourceChatId: chatId, sourceMessageId: finalAssistant.id });
-    }
+    set((s) => ({ messages: [...s.messages, userMsg] }));
+    await generateReply(set, get, chat, apiKey, { createMemory: true });
     await get().loadChats();
+  },
+
+  regenerateLast: async () => {
+    const chatId = get().currentChatId;
+    if (!chatId || get().streaming) return;
+    const chat = await getChat(chatId);
+    if (!chat) return;
+    const apiKey = await getApiKey(chat.providerId);
+    if (!apiKey) {
+      set({ error: 'No API key set for this chat’s provider.' });
+      return;
+    }
+    // Drop the trailing assistant message, then regenerate from the same history.
+    const msgs = get().messages;
+    const last = msgs[msgs.length - 1];
+    if (!last || last.role !== 'assistant') return;
+    await dbDeleteMessage(last.id);
+    set({ messages: msgs.slice(0, -1) });
+    await generateReply(set, get, chat, apiKey, { createMemory: false });
+  },
+
+  deleteMessage: async (id) => {
+    await dbDeleteMessage(id);
+    set((s) => ({ messages: s.messages.filter((m) => m.id !== id) }));
+  },
+
+  pinMessageToMemory: async (message) => {
+    if (!message.content) return;
+    await addMemory({
+      content: message.content,
+      sourceChatId: message.chatId,
+      sourceMessageId: message.id,
+      pinned: true,
+    });
   },
 
   compactCurrent: async (retention) => {
@@ -301,15 +244,112 @@ export const useChats = create<ChatsState>((set, get) => ({
   },
 }));
 
+type Setter = (partial: Partial<ChatsState> | ((s: ChatsState) => Partial<ChatsState>)) => void;
+type Getter = () => ChatsState;
+
+/**
+ * Shared streaming core used by both send() and regenerateLast(). Assumes the
+ * user turn is already in state; appends a streaming assistant placeholder,
+ * injects retrieved memory, streams the reply, then persists + (optionally)
+ * distills the exchange into memory.
+ */
+async function generateReply(
+  set: Setter,
+  get: Getter,
+  chat: Chat,
+  apiKey: string,
+  opts: { createMemory: boolean },
+): Promise<void> {
+  const chatId = chat.id;
+  const lastUser = [...get().messages].reverse().find((m) => m.role === 'user');
+  const queryText = lastUser?.content ?? '';
+
+  const assistantMsg: Message = {
+    id: newId('msg_'),
+    chatId,
+    role: 'assistant',
+    content: '',
+    createdAt: now() + 1,
+  };
+  set((s) => ({
+    messages: [...s.messages, assistantMsg],
+    streaming: true,
+    streamingId: assistantMsg.id,
+    error: null,
+  }));
+
+  let system = chat.systemPromptId ? (await getPrompt(chat.systemPromptId))?.body ?? '' : '';
+  let memoryHits = 0;
+  if (chat.memoryEnabled && queryText) {
+    try {
+      const block = await buildMemoryBlock(queryText);
+      if (block) {
+        system = system ? `${system}\n\n${block.text}` : block.text;
+        memoryHits = block.count;
+      }
+    } catch {
+      // Memory is best-effort; a missing embeddings key shouldn't block chat.
+    }
+  }
+  set({ lastMemoryHits: memoryHits });
+
+  const history = await Promise.all(
+    get()
+      .messages.filter((m) => m.id !== assistantMsg.id && (m.content || m.attachments?.length))
+      .map(toProviderMessage),
+  );
+
+  abortController = new AbortController();
+  let acc = '';
+  let usage: Message['usage'];
+  try {
+    for await (const chunk of getProvider(chat.providerId).streamChat(
+      { model: chat.model, system: system || undefined, messages: history },
+      apiKey,
+      abortController.signal,
+    )) {
+      if (chunk.delta) {
+        acc += chunk.delta;
+        set((s) => ({
+          messages: s.messages.map((m) => (m.id === assistantMsg.id ? { ...m, content: acc } : m)),
+        }));
+      }
+      if (chunk.usage) usage = chunk.usage;
+      if (chunk.done) break;
+    }
+  } catch (e) {
+    const msg = (e as Error)?.message ?? 'Request failed';
+    set((s) => ({
+      error: msg,
+      messages: s.messages.map((m) =>
+        m.id === assistantMsg.id ? { ...m, content: acc || `⚠️ ${msg}` } : m,
+      ),
+    }));
+  } finally {
+    abortController = null;
+    set((s) => ({
+      streaming: false,
+      streamingId: null,
+      messages: s.messages.map((m) => (m.id === assistantMsg.id ? { ...m, usage } : m)),
+    }));
+  }
+
+  await insertMessage({ ...assistantMsg, content: acc, usage });
+  await touchChat(chatId);
+  if (acc && chat.memoryEnabled && opts.createMemory) {
+    if (lastUser) {
+      await addMemory({ content: lastUser.content, sourceChatId: chatId, sourceMessageId: lastUser.id });
+    }
+    await addMemory({ content: acc, sourceChatId: chatId, sourceMessageId: assistantMsg.id });
+  }
+}
+
 /**
  * Retrieve relevant memories for the query and format them for injection.
  * Backfills embeddings on demand and records access stats. Returns null when
  * memory can't run (no embeddings provider/key) so the caller can skip silently.
  */
-async function buildMemoryBlock(
-  chatId: string,
-  query: string,
-): Promise<{ text: string; count: number } | null> {
+async function buildMemoryBlock(query: string): Promise<{ text: string; count: number } | null> {
   const { settings } = useSettings.getState();
   if (!settings.embeddingProviderId) return null;
   const provider = getProvider(settings.embeddingProviderId);
@@ -326,7 +366,6 @@ async function buildMemoryBlock(
   const all = await listMemories();
   if (all.length === 0) return null;
 
-  // Backfill any missing/stale embeddings and persist them.
   const embedded = await ensureEmbeddings(all, cfg);
   await saveEmbeddings(embedded);
 
