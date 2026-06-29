@@ -12,11 +12,11 @@ import {
   View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChats } from '@/state/chats';
 import { usePrompts } from '@/state/prompts';
-import { allProviders, contextWindowFor, costOf, formatCost } from '@/providers';
+import { allProviders, contextWindowFor, costOf, formatCost, priceFor } from '@/providers';
 import type { Attachment, Message, ProviderId } from '@/types';
 import { PickerModal, type PickerOption } from '@/components/PickerModal';
 import { CompactionSheet } from '@/components/CompactionSheet';
@@ -45,7 +45,10 @@ export default function ChatScreen() {
   const regenerateLast = useChats((s) => s.regenerateLast);
   const deleteMessage = useChats((s) => s.deleteMessage);
   const pinMessageToMemory = useChats((s) => s.pinMessageToMemory);
+  const truncateFrom = useChats((s) => s.truncateFrom);
+  const branchFrom = useChats((s) => s.branchFrom);
   const clearError = useChats((s) => s.clearError);
+  const router = useRouter();
 
   const prompts = usePrompts((s) => s.prompts);
   const retentionDefault = useSettings((s) => s.settings.compactionRetention);
@@ -90,6 +93,17 @@ export default function ChatScreen() {
     const estTokens = chars / 4; // rough heuristic
     return estTokens / contextWindowFor(chat.providerId, chat.model);
   }, [messages, chat]);
+
+  // Rough "cost to send" estimate for the next turn (input tokens only).
+  const sendEstimate = useMemo(() => {
+    if (!chat) return null;
+    const price = priceFor(chat.providerId, chat.model);
+    if (!price) return null;
+    const chars = messages.reduce((n, m) => n + m.content.length, 0) + draft.length;
+    const estTokens = chars / 4;
+    if (estTokens < 20) return null;
+    return (estTokens / 1_000_000) * price.in;
+  }, [messages, draft, chat]);
 
   const onSend = () => {
     const text = draft.trim();
@@ -222,6 +236,12 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
+        {sendEstimate != null ? (
+          <Text style={{ color: theme.colors.textDim, fontSize: 10, textAlign: 'right', paddingHorizontal: theme.space(4), paddingBottom: 2 }}>
+            ~{formatCost(sendEstimate)} to send
+          </Text>
+        ) : null}
+
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.space(2), padding: theme.space(3), borderTopWidth: 1, borderTopColor: theme.colors.border }}>
           <Pressable onPress={onAttach} style={sendBtn(theme.colors.surfaceAlt)}>
             <Text style={{ color: theme.colors.text, fontSize: 20 }}>＋</Text>
@@ -299,6 +319,30 @@ export default function ChatScreen() {
                 }}
               />
             ) : null}
+            {actionMsg?.role === 'user' ? (
+              <ActionRow
+                label="✎ Edit & resend"
+                onPress={async () => {
+                  const m = actionMsg;
+                  setActionMsg(null);
+                  if (m) {
+                    const text = await truncateFrom(m.id);
+                    if (text != null) setDraft(text);
+                  }
+                }}
+              />
+            ) : null}
+            <ActionRow
+              label="⑂ Branch from here"
+              onPress={async () => {
+                const m = actionMsg;
+                setActionMsg(null);
+                if (m) {
+                  const newId = await branchFrom(m.id);
+                  if (newId) router.push(`/chat/${newId}`);
+                }
+              }}
+            />
             <ActionRow
               label="Delete message"
               danger

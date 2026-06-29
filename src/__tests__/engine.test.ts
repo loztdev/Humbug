@@ -6,6 +6,7 @@ import {
   RETENTION,
 } from '@/compaction/retention';
 import { costOf, formatCost } from '@/providers/pricing';
+import { encryptString, decryptString } from '@/backup/crypto';
 
 describe('similarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -65,5 +66,23 @@ describe('pricing', () => {
   it('formats small costs with more precision', () => {
     expect(formatCost(0.0004)).toBe('$0.0004');
     expect(formatCost(2.5)).toBe('$2.50');
+  });
+});
+
+describe('backup crypto', () => {
+  // Fixed salt/iv so the round-trip is deterministic in tests.
+  const salt = '00112233445566778899aabbccddeeff';
+  const iv = 'ffeeddccbbaa99887766554433221100';
+
+  it('round-trips an encrypted payload with the right passphrase', () => {
+    const plain = JSON.stringify({ hello: 'world', n: 42 });
+    const blob = encryptString(plain, 'correct horse', salt, iv, 1000);
+    expect(blob.ct).not.toContain('world');
+    expect(decryptString(blob, 'correct horse')).toBe(plain);
+  });
+
+  it('fails to decrypt with the wrong passphrase', () => {
+    const blob = encryptString('secret', 'right-pass', salt, iv, 1000);
+    expect(() => decryptString(blob, 'wrong-pass')).toThrow();
   });
 });

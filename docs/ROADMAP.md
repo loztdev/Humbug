@@ -29,11 +29,14 @@ Built incrementally across turns. Checked = landed.
 - [x] App lock (biometric / device PIN)
 - [x] Auto-compact suggestion when nearing the context window
 
-## Phase 5 — Next up
+## Phase 5 — Backup, branching, cost preview (done)
+- [x] Encrypted backup & restore of the whole library (#12) — PBKDF2 + AES-256
+- [x] Edit-and-resend a message (#9)
+- [x] Conversation branching / forking (#4)
+- [x] "Estimated cost before sending" preview
+
+## Phase 6 — Next up
 - [ ] Local on-device embeddings, selectable vs. API embeddings (#5)
-- [ ] Encrypted backup & restore of the whole library (#12)
-- [ ] Edit-and-resend a message; conversation branching/forking (#4, #9)
-- [ ] "Estimated cost before sending" preview
 
 ## Later (kept in mind)
 - [ ] Voice input/output (#6)

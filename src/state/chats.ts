@@ -61,6 +61,10 @@ interface ChatsState {
   regenerateLast: () => Promise<void>;
   deleteMessage: (id: string) => Promise<void>;
   pinMessageToMemory: (message: Message) => Promise<void>;
+  /** Remove a message and everything after it; returns its text (for editing). */
+  truncateFrom: (messageId: string) => Promise<string | null>;
+  /** Fork a new chat containing messages up to and including the given one. */
+  branchFrom: (messageId: string) => Promise<string | null>;
   stop: () => void;
   compactCurrent: (retention: number) => Promise<void>;
   clearError: () => void;
@@ -199,6 +203,40 @@ export const useChats = create<ChatsState>((set, get) => ({
       sourceMessageId: message.id,
       pinned: true,
     });
+  },
+
+  truncateFrom: async (messageId) => {
+    if (get().streaming) return null;
+    const msgs = get().messages;
+    const idx = msgs.findIndex((m) => m.id === messageId);
+    if (idx < 0) return null;
+    for (const m of msgs.slice(idx)) await dbDeleteMessage(m.id);
+    set({ messages: msgs.slice(0, idx) });
+    return msgs[idx].content;
+  },
+
+  branchFrom: async (messageId) => {
+    const chatId = get().currentChatId;
+    if (!chatId) return null;
+    const chat = await getChat(chatId);
+    if (!chat) return null;
+    const msgs = get().messages;
+    const idx = msgs.findIndex((m) => m.id === messageId);
+    if (idx < 0) return null;
+
+    const branch = await dbCreateChat({
+      title: `${chat.title} (branch)`,
+      providerId: chat.providerId,
+      model: chat.model,
+      systemPromptId: chat.systemPromptId,
+      memoryEnabled: chat.memoryEnabled,
+    });
+    let ts = branch.createdAt;
+    for (const m of msgs.slice(0, idx + 1)) {
+      await insertMessage({ ...m, id: newId('msg_'), chatId: branch.id, createdAt: ts++ });
+    }
+    set((s) => ({ chats: [branch, ...s.chats] }));
+    return branch.id;
   },
 
   compactCurrent: async (retention) => {
