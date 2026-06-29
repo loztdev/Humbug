@@ -19,7 +19,8 @@ import { ProviderError } from './types';
 export interface OpenAICompatConfig {
   id: ProviderId;
   name: string;
-  baseUrl: string;
+  /** Base URL, or a getter for endpoints configured at runtime (custom). */
+  baseUrl: string | (() => string);
   defaultModel: string;
   staticModels: ModelInfo[];
   capabilities: ProviderCapabilities;
@@ -29,6 +30,7 @@ export interface OpenAICompatConfig {
 }
 
 export function createOpenAICompatProvider(cfg: OpenAICompatConfig): Provider {
+  const base = (): string => (typeof cfg.baseUrl === 'function' ? cfg.baseUrl() : cfg.baseUrl);
   const authHeaders = (apiKey: string): Record<string, string> => ({
     authorization: `Bearer ${apiKey}`,
     ...cfg.extraHeaders,
@@ -44,7 +46,7 @@ export function createOpenAICompatProvider(cfg: OpenAICompatConfig): Provider {
 
     async listModels(apiKey: string): Promise<ModelInfo[]> {
       try {
-        const res = await fetch(`${cfg.baseUrl}/models`, {
+        const res = await fetch(`${base()}/models`, {
           headers: authHeaders(apiKey),
         });
         if (!res.ok) throw new HttpError(res.status, await res.text());
@@ -79,7 +81,7 @@ export function createOpenAICompatProvider(cfg: OpenAICompatConfig): Provider {
 
       try {
         for await (const ev of postSSE(
-          `${cfg.baseUrl}/chat/completions`,
+          `${base()}/chat/completions`,
           { headers: authHeaders(apiKey), body },
           signal,
         )) {
@@ -110,7 +112,7 @@ export function createOpenAICompatProvider(cfg: OpenAICompatConfig): Provider {
   if (cfg.capabilities.embeddings) {
     provider.embed = async (texts, apiKey, model) => {
       try {
-        const res = await fetch(`${cfg.baseUrl}/embeddings`, {
+        const res = await fetch(`${base()}/embeddings`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', ...authHeaders(apiKey) },
           body: JSON.stringify({

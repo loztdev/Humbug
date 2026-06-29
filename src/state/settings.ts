@@ -7,7 +7,7 @@ import {
   saveSettings,
 } from '@/storage/settingsRepo';
 import { getApiKey, setApiKey } from '@/storage/secureKeys';
-import { PROVIDER_IDS } from '@/providers';
+import { PROVIDER_IDS, setCustomConfig } from '@/providers';
 
 /**
  * Holds app preferences plus which providers have a key configured. Key values
@@ -40,6 +40,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
 
   load: async () => {
     const settings = await loadSettings();
+    setCustomConfig({ baseUrl: settings.customBaseUrl, model: settings.customModel });
     const presence = emptyPresence();
     await Promise.all(
       PROVIDER_IDS.map(async (id) => {
@@ -52,6 +53,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   update: async (patch) => {
     const next = { ...get().settings, ...patch };
     set({ settings: next });
+    setCustomConfig({ baseUrl: next.customBaseUrl, model: next.customModel });
     await saveSettings(next);
   },
 

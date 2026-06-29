@@ -39,6 +39,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/prompts" options={{ title: 'System Prompts' }} />
         <Stack.Screen name="settings/memory" options={{ title: 'Memory' }} />
         <Stack.Screen name="search" options={{ title: 'Search' }} />
+        <Stack.Screen name="council" options={{ title: 'Council' }} />
       </Stack>
       </AppLockGate>
     </SafeAreaProvider>

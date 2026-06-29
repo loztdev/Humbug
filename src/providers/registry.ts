@@ -2,6 +2,7 @@ import type { ProviderId } from '@/types';
 import { anthropicProvider } from './anthropic';
 import { geminiProvider } from './gemini';
 import { createOpenAICompatProvider } from './openaiCompat';
+import { customProvider } from './custom';
 import type { Provider } from './types';
 
 /**
@@ -63,6 +64,7 @@ const PROVIDERS: Record<ProviderId, Provider> = {
   openrouter: openrouterProvider,
   gemini: geminiProvider,
   zai: zaiProvider,
+  custom: customProvider,
 };
 
 export function getProvider(id: ProviderId): Provider {

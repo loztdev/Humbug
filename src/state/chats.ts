@@ -30,6 +30,7 @@ import {
   retrieveRelevant,
   type EmbeddingConfig,
 } from '@/memory/retrieval';
+import { LOCAL_EMBEDDING_MODEL } from '@/memory/localEmbeddings';
 import { compactConversation } from '@/compaction/compactor';
 import { getPrompt } from '@/storage/promptsRepo';
 import { useSettings } from './settings';
@@ -71,6 +72,13 @@ interface ChatsState {
 }
 
 let abortController: AbortController | null = null;
+
+/** Resolve the API key, allowing the custom endpoint to run keyless (e.g. Ollama). */
+async function resolveApiKey(providerId: ProviderId): Promise<string | null> {
+  const key = await getApiKey(providerId);
+  if (key != null) return key;
+  return providerId === 'custom' ? '' : null;
+}
 
 export const useChats = create<ChatsState>((set, get) => ({
   chats: [],
@@ -142,8 +150,8 @@ export const useChats = create<ChatsState>((set, get) => ({
     const chat = await getChat(chatId);
     if (!chat) return;
 
-    const apiKey = await getApiKey(chat.providerId);
-    if (!apiKey) {
+    const apiKey = await resolveApiKey(chat.providerId);
+    if (apiKey == null) {
       set({
         error: `No API key set for ${getProvider(chat.providerId).name}. Add one in Settings → Providers.`,
       });
@@ -176,8 +184,8 @@ export const useChats = create<ChatsState>((set, get) => ({
     if (!chatId || get().streaming) return;
     const chat = await getChat(chatId);
     if (!chat) return;
-    const apiKey = await getApiKey(chat.providerId);
-    if (!apiKey) {
+    const apiKey = await resolveApiKey(chat.providerId);
+    if (apiKey == null) {
       set({ error: 'No API key set for this chat’s provider.' });
       return;
     }
@@ -244,8 +252,8 @@ export const useChats = create<ChatsState>((set, get) => ({
     if (!chatId || get().streaming) return;
     const chat = await getChat(chatId);
     if (!chat) return;
-    const apiKey = await getApiKey(chat.providerId);
-    if (!apiKey) {
+    const apiKey = await resolveApiKey(chat.providerId);
+    if (apiKey == null) {
       set({ error: 'No API key set for this chat’s provider.' });
       return;
     }
@@ -389,17 +397,22 @@ async function generateReply(
  */
 async function buildMemoryBlock(query: string): Promise<{ text: string; count: number } | null> {
   const { settings } = useSettings.getState();
-  if (!settings.embeddingProviderId) return null;
-  const provider = getProvider(settings.embeddingProviderId);
-  if (!provider.capabilities.embeddings) return null;
-  const apiKey = await getApiKey(settings.embeddingProviderId);
-  if (!apiKey) return null;
 
-  const cfg: EmbeddingConfig = {
-    providerId: settings.embeddingProviderId,
-    apiKey,
-    model: settings.embeddingModel ?? provider.defaultEmbeddingModel,
-  };
+  let cfg: EmbeddingConfig;
+  if (settings.embeddingMode === 'local') {
+    cfg = { local: true, model: LOCAL_EMBEDDING_MODEL };
+  } else {
+    if (!settings.embeddingProviderId) return null;
+    const provider = getProvider(settings.embeddingProviderId);
+    if (!provider.capabilities.embeddings) return null;
+    const apiKey = await getApiKey(settings.embeddingProviderId);
+    if (!apiKey) return null;
+    cfg = {
+      providerId: settings.embeddingProviderId,
+      apiKey,
+      model: settings.embeddingModel ?? provider.defaultEmbeddingModel,
+    };
+  }
 
   const all = await listMemories();
   if (all.length === 0) return null;

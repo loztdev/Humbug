@@ -61,13 +61,47 @@ export default function SettingsScreen() {
 
       <Section title="Memory (embeddings)">
         <Row
-          label="Embeddings provider"
-          value={settings.embeddingProviderId ? getProvider(settings.embeddingProviderId).name : 'Disabled'}
+          label="Embeddings"
+          value={
+            settings.embeddingMode === 'local'
+              ? 'On-device'
+              : settings.embeddingProviderId
+                ? getProvider(settings.embeddingProviderId).name
+                : 'Disabled'
+          }
           onPress={() => setOpen('embProvider')}
         />
         <Text style={{ color: theme.colors.textDim, fontSize: 12, paddingHorizontal: theme.space(4), paddingBottom: theme.space(3) }}>
-          Semantic memory needs an embeddings-capable provider (OpenAI, Gemini, or z.ai). Anthropic and OpenRouter don’t offer embeddings.
+          On-device works with no key (lightweight, keyword-leaning). For richer semantic recall, use an embeddings provider (OpenAI, Gemini, or z.ai). Anthropic and OpenRouter don’t offer embeddings.
         </Text>
+      </Section>
+
+      <Section title="Custom endpoint (Ollama, LM Studio, …)">
+        <View style={{ padding: theme.space(3.5), gap: theme.space(2) }}>
+          <Text style={{ color: theme.colors.textDim, fontSize: 12 }}>Base URL</Text>
+          <TextInput
+            value={settings.customBaseUrl}
+            onChangeText={(t) => update({ customBaseUrl: t })}
+            placeholder="http://192.168.1.10:11434/v1"
+            placeholderTextColor={theme.colors.textDim}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{ color: theme.colors.text, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.sm, padding: theme.space(3), fontSize: 14 }}
+          />
+          <Text style={{ color: theme.colors.textDim, fontSize: 12, marginTop: theme.space(1) }}>Model</Text>
+          <TextInput
+            value={settings.customModel}
+            onChangeText={(t) => update({ customModel: t })}
+            placeholder="llama3.1  ·  qwen2.5-coder  ·  …"
+            placeholderTextColor={theme.colors.textDim}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{ color: theme.colors.text, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.sm, padding: theme.space(3), fontSize: 14 }}
+          />
+          <Text style={{ color: theme.colors.textDim, fontSize: 11, marginTop: theme.space(1) }}>
+            Any OpenAI-compatible server. Pick “Custom endpoint” as the provider in a chat. On a phone, use your computer’s LAN IP (not localhost). Add a key under Providers only if your server needs one.
+          </Text>
+        </View>
       </Section>
 
       <Section title="Compaction">
@@ -130,19 +164,27 @@ export default function SettingsScreen() {
       />
       <PickerModal
         visible={open === 'embProvider'}
-        title="Embeddings provider"
-        selected={settings.embeddingProviderId ?? ''}
+        title="Embeddings backend"
+        selected={settings.embeddingMode === 'local' ? 'local' : settings.embeddingProviderId ?? ''}
         options={[
           { label: 'Disabled', value: '' },
-          ...embeddingProviders().map((p) => ({ label: p.name, value: p.id })),
+          { label: 'On-device (no key, lightweight)', value: 'local' },
+          ...embeddingProviders().map((p) => ({ label: p.name, value: p.id, sublabel: 'API key required' })),
         ]}
         onClose={() => setOpen(null)}
-        onSelect={(v) =>
-          update({
-            embeddingProviderId: (v || null) as ProviderId | null,
-            embeddingModel: v ? getProvider(v as ProviderId).defaultEmbeddingModel ?? null : null,
-          })
-        }
+        onSelect={(v) => {
+          if (v === 'local') {
+            update({ embeddingMode: 'local' });
+          } else if (v === '') {
+            update({ embeddingMode: 'api', embeddingProviderId: null });
+          } else {
+            update({
+              embeddingMode: 'api',
+              embeddingProviderId: v as ProviderId,
+              embeddingModel: getProvider(v as ProviderId).defaultEmbeddingModel ?? null,
+            });
+          }
+        }}
       />
       <CompactionSheet
         visible={retentionSheet}

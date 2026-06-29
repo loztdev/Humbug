@@ -27,6 +27,9 @@ export default function ChatListScreen() {
         options={{
           headerRight: () => (
             <View style={{ flexDirection: 'row', gap: theme.space(2) }}>
+              <Link href="/council" style={{ color: theme.colors.accent, fontSize: 18, paddingHorizontal: 6 }}>
+                ⚖
+              </Link>
               <Link href="/search" style={{ color: theme.colors.accent, fontSize: 20, paddingHorizontal: 6 }}>
                 ⌕
               </Link>

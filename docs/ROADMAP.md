@@ -35,13 +35,14 @@ Built incrementally across turns. Checked = landed.
 - [x] Conversation branching / forking (#4)
 - [x] "Estimated cost before sending" preview
 
-## Phase 6 — Next up
-- [ ] Local on-device embeddings, selectable vs. API embeddings (#5)
+## Phase 6 — Local memory, custom models, council (done)
+- [x] Local on-device embeddings (feature hashing), selectable vs. API (#5)
+- [x] Custom / self-hosted OpenAI-compatible endpoints, incl. Ollama (#14)
+- [x] Prompt template starter pack (#7)
+- [x] Multi-model "council" compare (#8)
 
 ## Later (kept in mind)
-- [ ] Voice input/output (#6)
-- [ ] Prompt template starter pack (#7)
-- [ ] Multi-model "council" compare (#8)
-- [ ] Custom / self-hosted OpenAI-compatible endpoints, incl. Ollama (#14)
-- [ ] Themes, light mode, chat density (#15)
-- [ ] Dynamic model lists from `listModels()`; iOS pass; accessibility
+- [ ] Voice input/output (#6) — needs native speech (STT/TTS)
+- [ ] Themes, light mode, chat density (#15) — needs a runtime theme refactor
+- [ ] Dynamic model lists from `listModels()` in pickers
+- [ ] iOS pass; accessibility pass

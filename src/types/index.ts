@@ -9,7 +9,8 @@ export type ProviderId =
   | 'openai'
   | 'openrouter'
   | 'gemini'
-  | 'zai';
+  | 'zai'
+  | 'custom';
 
 export type Role = 'system' | 'user' | 'assistant';
 

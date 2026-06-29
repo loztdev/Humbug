@@ -7,6 +7,7 @@ import {
 } from '@/compaction/retention';
 import { costOf, formatCost } from '@/providers/pricing';
 import { encryptString, decryptString } from '@/backup/crypto';
+import { embedLocal } from '@/memory/localEmbeddings';
 
 describe('similarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -84,5 +85,19 @@ describe('backup crypto', () => {
   it('fails to decrypt with the wrong passphrase', () => {
     const blob = encryptString('secret', 'right-pass', salt, iv, 1000);
     expect(() => decryptString(blob, 'wrong-pass')).toThrow();
+  });
+});
+
+describe('local embeddings', () => {
+  it('produces normalized vectors where related text scores higher', () => {
+    const [a, b, c] = embedLocal([
+      'the cat sat on the warm mat',
+      'a cat naps on a cozy mat',
+      'quarterly revenue projections and tax filings',
+    ]);
+    // L2-normalized → self cosine ≈ 1.
+    expect(cosineSimilarity(a, a)).toBeCloseTo(1, 5);
+    // Topically related pair should beat the unrelated one.
+    expect(cosineSimilarity(a, b)).toBeGreaterThan(cosineSimilarity(a, c));
   });
 });

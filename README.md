@@ -8,25 +8,34 @@ Humbug is going to be something extraordinary.
 
 ## Status
 
-Early development. The **engine layer** (provider abstraction, semantic memory,
-compaction, secure key storage) is implemented and unit-tested. The UI and
-persistence layers are next — see [docs/ROADMAP.md](docs/ROADMAP.md).
+Feature-complete against the original brief plus a large wishlist, and runnable
+(Android-first). Pure engine logic is unit-tested; see
+[docs/ROADMAP.md](docs/ROADMAP.md) for what's done and what's queued.
 
 ## What it does
 
 - **Connect any API key** — Anthropic (Claude), OpenAI, OpenRouter, Google
-  Gemini, and z.ai (Zhipu) are supported out of the box, behind one unified
-  interface. Adding more providers is a single registry entry.
+  Gemini, z.ai (Zhipu), plus a **custom OpenAI-compatible endpoint** (Ollama,
+  LM Studio, vLLM, …), behind one unified interface. Adding more is one entry.
 - **Advanced memory** — every message/memory is embedded into a vector; on each
-  turn only the most *semantically relevant* pieces are retrieved and injected,
-  so the model loads only what matters instead of the whole history.
-- **Meaning-preserving compaction** — a slider (50%→97%) sets how much of the
-  original meaning to keep when condensing long threads, with an honest
-  in-app explainer about diminishing returns near the top.
-- **Persistent, exportable chats** — chats are stored locally and can be
-  exported all at once or individually.
-- **Named system prompts** — save, name, and reuse system prompts across chats.
-- **File uploads** — attach documents/images for context.
+  turn only the most *semantically relevant* pieces are retrieved and injected.
+  Use an API embeddings provider **or on-device embeddings** (no key needed).
+  Browse, search, pin, edit, and delete memories.
+- **Meaning-preserving compaction** — a continuous slider (50%→97%) sets how
+  much meaning to keep when condensing long threads, with an honest gains
+  explainer; auto-suggested when a chat nears the context window.
+- **Persistent, exportable chats** — stored locally; export all or individual
+  as Markdown/JSON, or take a **passphrase-encrypted backup** of everything.
+- **Named system prompts** — save/name/reuse, plus a one-tap starter pack.
+- **File uploads** — attach documents (text extracted into context) and images
+  (sent to vision models).
+- **Markdown replies** with copyable code blocks; **per-message cost/token**
+  meter and a cost-to-send preview.
+- **Per-message actions** — copy, pin to memory, regenerate, delete,
+  edit-and-resend, and **branch** a new chat from any point.
+- **Global search** across chats, messages, and memories.
+- **Multi-model council** — ask 2–3 models the same prompt and compare.
+- **App lock** — optional biometric / device-PIN gate.
 
 ## Architecture
 

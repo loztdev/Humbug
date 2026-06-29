@@ -1,6 +1,7 @@
 import type { MemoryItem, ProviderId } from '@/types';
 import { getProvider } from '@/providers';
 import { topK, type Scored } from './similarity';
+import { embedLocal, LOCAL_EMBEDDING_MODEL } from './localEmbeddings';
 
 /**
  * The semantic memory engine — the core of "load only what's relevant".
@@ -12,9 +13,12 @@ import { topK, type Scored } from './similarity';
  */
 
 export interface EmbeddingConfig {
-  providerId: ProviderId;
-  apiKey: string;
+  /** API-mode provider; omitted when using on-device embeddings. */
+  providerId?: ProviderId;
+  apiKey?: string;
   model?: string;
+  /** When true, embed on-device (no provider/key needed). */
+  local?: boolean;
 }
 
 export interface RetrievalOptions {
@@ -32,15 +36,19 @@ const DEFAULTS: Required<RetrievalOptions> = {
   recencyWeight: 0.15,
 };
 
-/** Embed one or more strings using the configured embeddings provider. */
+/** Embed one or more strings using the configured backend (API or on-device). */
 export async function embedTexts(
   texts: string[],
   cfg: EmbeddingConfig,
 ): Promise<number[][]> {
+  if (cfg.local) return embedLocal(texts);
+  if (!cfg.providerId || !cfg.apiKey) {
+    throw new Error('No embeddings backend configured. Pick one in Settings → Memory.');
+  }
   const provider = getProvider(cfg.providerId);
   if (!provider.embed) {
     throw new Error(
-      `${provider.name} cannot produce embeddings. Choose an embeddings provider (OpenAI, Gemini, or z.ai) for memory.`,
+      `${provider.name} cannot produce embeddings. Choose an embeddings provider (OpenAI, Gemini, or z.ai) or use on-device embeddings.`,
     );
   }
   return provider.embed(texts, cfg.apiKey, cfg.model);
@@ -133,5 +141,7 @@ function recencyBoost(m: MemoryItem, now: number): number {
 }
 
 function defaultModel(cfg: EmbeddingConfig): string {
+  if (cfg.local) return LOCAL_EMBEDDING_MODEL;
+  if (!cfg.providerId) return 'unknown';
   return getProvider(cfg.providerId).defaultEmbeddingModel ?? 'unknown';
 }

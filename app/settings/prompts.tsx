@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { usePrompts } from '@/state/prompts';
 import type { SystemPrompt } from '@/types';
+import { PROMPT_PACK } from '@/data/promptPack';
 import { theme } from '@/theme';
 
 /** The named system-prompt library: create, name, save, edit, and delete. */
@@ -30,6 +31,13 @@ export default function PromptsScreen() {
     if (editing === 'new') await create(name.trim(), body.trim());
     else if (editing) await update(editing.id, { name: name.trim(), body: body.trim() });
     setEditing(null);
+  };
+
+  const importPack = async () => {
+    const existing = new Set(prompts.map((p) => p.name));
+    for (const p of PROMPT_PACK) {
+      if (!existing.has(p.name)) await create(p.name, p.body);
+    }
   };
 
   if (editing) {
@@ -64,9 +72,14 @@ export default function PromptsScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.bg }} contentContainerStyle={{ padding: theme.space(3), gap: theme.space(2) }}>
-      <Pressable onPress={startNew} style={{ backgroundColor: theme.colors.accent, borderRadius: theme.radius.md, padding: theme.space(3.5), alignItems: 'center', marginBottom: theme.space(2) }}>
-        <Text style={{ color: '#fff', fontWeight: '700' }}>+ New system prompt</Text>
-      </Pressable>
+      <View style={{ flexDirection: 'row', gap: theme.space(2), marginBottom: theme.space(2) }}>
+        <Pressable onPress={startNew} style={{ flex: 1, backgroundColor: theme.colors.accent, borderRadius: theme.radius.md, padding: theme.space(3.5), alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>+ New prompt</Text>
+        </Pressable>
+        <Pressable onPress={importPack} style={{ backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.md, paddingVertical: theme.space(3.5), paddingHorizontal: theme.space(4), alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: theme.colors.text, fontWeight: '600' }}>Starter pack</Text>
+        </Pressable>
+      </View>
 
       {prompts.length === 0 ? (
         <Text style={{ color: theme.colors.textDim, textAlign: 'center', padding: theme.space(8) }}>

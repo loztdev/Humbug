@@ -12,7 +12,9 @@ export interface AppSettings {
   /** Provider used for chat completions. */
   chatProviderId: ProviderId;
   chatModel: string;
-  /** Provider used for embeddings (must be embeddings-capable). */
+  /** Where embeddings come from: an API provider, or on-device. */
+  embeddingMode: 'api' | 'local';
+  /** Provider used for embeddings in API mode (must be embeddings-capable). */
   embeddingProviderId: ProviderId | null;
   embeddingModel: string | null;
   /** Default system prompt applied to new chats. */
@@ -21,16 +23,22 @@ export interface AppSettings {
   compactionRetention: number;
   /** Require device authentication (biometric/PIN) to open the app. */
   appLock: boolean;
+  /** Custom OpenAI-compatible endpoint (Ollama, LM Studio, etc.). */
+  customBaseUrl: string;
+  customModel: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   chatProviderId: 'anthropic',
   chatModel: 'claude-sonnet-4-6',
+  embeddingMode: 'api',
   embeddingProviderId: 'openai',
   embeddingModel: 'text-embedding-3-small',
   defaultSystemPromptId: null,
   compactionRetention: RETENTION.default,
   appLock: false,
+  customBaseUrl: '',
+  customModel: '',
 };
 
 const KEY = 'app';

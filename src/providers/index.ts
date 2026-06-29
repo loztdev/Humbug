@@ -7,3 +7,4 @@ export {
   PROVIDER_IDS,
 } from './registry';
 export { costOf, formatCost, priceFor } from './pricing';
+export { setCustomConfig, customConfig } from './custom';
